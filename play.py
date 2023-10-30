@@ -123,5 +123,64 @@ def computer_minimax(s,v, depth, a,b, big = False):
     else:
         return ret
 
+def explore_leaves(s,v):
+    ret = []
+    start = time.time()
+    v.reset()
+    bval = v(s)
+    cval, ret = computer_minimax(s,v,0, a = -MAXVAL, b = MAXVAL, big = True)
+    eta = time.time() - start
+    print("%.2f -> %.2f: explored %d nodes in %.3f seconds %d/sec" % (bval, cval, v.count, eta, int(v.count/eta)))
+    return ret
 
+#the board and the engine
+s = State()
+v = ClassicValuator()
+
+def to_svg(s):
+  return base64.b64encode(chess.svg.board(board=s.board).encode('utf-8')).decode('utf-8')
+
+from flask import Flask, Response, request
+app = Flask(__name__)
+
+@app.route("/")
+def hello():
+  ret = open("index.html").read()
+  return ret.replace('start', s.board.fen())
+
+
+def computer_move(s,v):
+    move = sorted(explore_leaves(s,v), key=lambda x : x[0],reverse=s.board.turn)
+    if len(move) == 0:
+        return
+    print('top 3 :')
+    for i, m in enumerate(move[0:3]):
+        print(' ',m)
+    print(s.board.turn, 'moving', move[0][1])
+    s.board.push(move[0][1])
+    
+@app.route('/selfplay')
+def selfplay():
+    s = State()
+    
+    ret = '<html><head>'
+    
+    while not s.board.is_game_over():
+        computer_move(s,v)
+        ret += '<img width=600 height=600 src="data:image/svg+xml;base64,%s"></img><br/>' % to_svg(s)
+    print(s.board.result())
+    
+    return ret
+
+
+
+@app.route('/move')
+def move():
+    if not s.board.is_game_over():
+        move = request.args.get('move', default="")
+        if move is not None and move != '':
+            print('human moves', move)
+            
+
+    
         
